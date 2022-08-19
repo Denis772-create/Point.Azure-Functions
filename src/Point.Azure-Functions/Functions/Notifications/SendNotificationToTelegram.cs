@@ -1,3 +1,6 @@
+using Telegram.Bot;
+using Telegram.Bot.Types.Enums;
+
 namespace Point.Azure_Functions.Functions.Notifications;
 
 public static class SendNotificationToTelegram
@@ -7,10 +10,20 @@ public static class SendNotificationToTelegram
         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "SendToTelegram")] HttpRequest req,
         ILogger log)
     {
-        string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        dynamic data = JsonConvert.DeserializeObject(requestBody);
+        log.LogInformation("---- Created Notification message: Telegram Notification");
 
-        return new OkObjectResult("");
+        string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+        TelegramToSend message = JsonConvert.DeserializeObject<TelegramToSend>(requestBody);
+
+        var bot = new TelegramBotClient(Environment.GetEnvironmentVariable("TelegramToken"));
+
+        var t = Environment.GetEnvironmentVariable("ChannelId");
+        await bot.SendTextMessageAsync(message.ChannelId,
+            message.Content, 
+            parseMode: ParseMode.Markdown);
+
+        log.LogInformation("---- Sent Notification message: Telegram Notification");
+        return new OkObjectResult("Message sent successfully!");
     }
 }
 

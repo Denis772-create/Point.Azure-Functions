@@ -13,6 +13,10 @@ global using Microsoft.Azure.WebJobs.Hosting;
 global using Point.Azure_Functions;
 global using System.IO;
 global using Newtonsoft.Json;
+global using Twilio;
+global using Twilio.Rest.Api.V2010.Account;
+
+
 
 
 

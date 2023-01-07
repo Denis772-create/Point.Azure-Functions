@@ -3,37 +3,28 @@ namespace Point.Azure_Functions.Functions.Notifications;
 public class SendNotificationToTelegram
 {
     private readonly ILogger<SendNotificationToTelegram> _log;
-    private readonly ServiceBusAdmin _busAdmin;
+    private readonly TelegramOptions _options;
 
-    public record TelegramToSend(string ChannelId, string Content);
+    public record TelegramToSend
+    {
+        public string ChannelId { get; init; }
+        public string Content { get; init; }
+    }
 
-    public SendNotificationToTelegram(ILogger<SendNotificationToTelegram> log)
+    public SendNotificationToTelegram(ILogger<SendNotificationToTelegram> log, TelegramOptions options)
     {
         _log = log;
-        _busAdmin = new ServiceBusAdmin(
-            Environment.GetEnvironmentVariable("AzureWebJobsServiceBus"));
+        _options = options;
     }
+
     [FunctionName("SendNotificationToTelegram")]
-    public async Task Run([ServiceBusTrigger("point_event_bus", "Notification")]
-        TelegramToSend telegramToSend)
+    public async Task Run([ServiceBusTrigger(Constants.TopicName, Constants.TelegramSubscriptionName)] TelegramToSend telegramToSend)
     {
-        try
-        {
-            await _busAdmin.CreateRulesForTopic(nameof(TelegramToSend));
-        }
-        catch
-        {
-            Console.WriteLine("Topic with such rules already exist!");
-            if (telegramToSend.ChannelId == null) return;
-        }
+        if (telegramToSend.ChannelId == null) return;
 
-        var bot = new TelegramBotClient(Environment.GetEnvironmentVariable("TelegramToken"));
+        var bot = new TelegramBotClient(_options.TelegramToken);
+        await bot.SendTextMessageAsync(telegramToSend.ChannelId, telegramToSend.Content, ParseMode.Markdown);
 
-        var t = Environment.GetEnvironmentVariable("ChannelId");
-        await bot.SendTextMessageAsync(telegramToSend.ChannelId,
-            telegramToSend.Content,
-            parseMode: ParseMode.Markdown);
-
-        _log.LogInformation("---- Sent Notification message: Telegram Notification");
+        _log.LogInformation("Sent notification message to Telegram");
     }
 }

@@ -3,41 +3,33 @@ namespace Point.Azure_Functions.Functions.Notifications;
 public class SendNotificationToPhone
 {
     private readonly ILogger<SendNotificationToPhone> _log;
-    private readonly ServiceBusAdmin _busAdmin;
+    private readonly PhoneOptions _options;
 
-    public record SmsToSend(string Recipient, string Content);
+    public record SmsToSend
+    {
+        public string Recipient { get; init; }
+        public string Content { get; init; }
+    }
 
-    public SendNotificationToPhone(ILogger<SendNotificationToPhone> log)
+    public SendNotificationToPhone(ILogger<SendNotificationToPhone> log, PhoneOptions options)
     {
         _log = log;
-        _busAdmin = new ServiceBusAdmin(
-            Environment.GetEnvironmentVariable("AzureWebJobsServiceBus"));
+        _options = options;
     }
 
     [FunctionName("SendNotificationToPhone")]
-    public async Task Run([ServiceBusTrigger("point_event_bus", "Notification")] SmsToSend smsToSend)
+    public async Task Run([ServiceBusTrigger(Constants.TopicName, Constants.SmsSubscriptionName)] SmsToSend smsToSend)
     {
-        try
-        {
-            await _busAdmin.CreateRulesForTopic(nameof(SmsToSend));
-        }
-        catch
-        {
-            Console.WriteLine("Topic with such rules already exist!");
-            if (smsToSend.Recipient == null) return;
-        }
+        if (smsToSend.Recipient == null) return;
 
-        _log.LogInformation("---- Created Notification message: SMS Notification");
-
-        TwilioClient.Init(Environment.GetEnvironmentVariable("AccountSID"),
-            Environment.GetEnvironmentVariable("AuthToken"));
+        TwilioClient.Init(_options.AccountSid, _options.AuthToken);
 
         await MessageResource.CreateAsync(
             body: smsToSend.Content,
-            from: new Twilio.Types.PhoneNumber(Environment.GetEnvironmentVariable("PhoneFrom")),
+            from: new Twilio.Types.PhoneNumber(_options.PhoneFrom),
             to: new Twilio.Types.PhoneNumber(smsToSend.Recipient)
         );
 
-        _log.LogInformation("---- Sent Notification message: SMS Notification");
+        _log.LogInformation($"Sent SMS Notification message to {smsToSend.Recipient}");
     }
 }

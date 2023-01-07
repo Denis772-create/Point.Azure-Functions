@@ -1,72 +1,59 @@
+using System.Runtime.Serialization;
+
 namespace Point.Azure_Functions.Functions.Notifications;
 
 public class SendNotificationToEmail
 {
     private readonly ILogger<SendNotificationToEmail> _log;
-    private readonly ServiceBusAdmin _busAdmin;
+    private readonly EmailOptions _options;
 
-    public record EmailToSend(string To, string Subject, string PlainBody, string HtmlBody);
+    public record EmailToSend
+    {
+        public string To { get; init; }
+        public string MessageSubject { get; init; }
+        public string PlainBody { get; init; }
+        public string HtmlBody { get; init; }
+    }
 
-    public SendNotificationToEmail(ILogger<SendNotificationToEmail> log)
+    public SendNotificationToEmail(ILogger<SendNotificationToEmail> log, EmailOptions options)
     {
         _log = log;
-        _busAdmin = new ServiceBusAdmin(Environment.GetEnvironmentVariable("AzureWebJobsServiceBus"));
+        _options = options;
     }
 
     [FunctionName("SendNotificationToEmail")]
-    public async Task Run([ServiceBusTrigger("point_event_bus", "Notification")] EmailToSend emailToSend)
+    public async Task Run([ServiceBusTrigger(Constants.TopicName, Constants.EmailSubscriptionName)] EmailToSend emailToSend)
     {
-        try
-        {
-            await _busAdmin.CreateRulesForTopic(nameof(EmailToSend));
-        }
-        catch
-        {
-            Console.WriteLine("Topic with such rules already exist!");
-            if (emailToSend.To == null) return;
-        }
+        if (emailToSend.To == null) return;
 
         try
         {
-            List<string> toEmailsList = GetToEmailAddressList(emailToSend.To);
+            var toEmailsList = GetToEmailAddressList(emailToSend.To);
 
-            _log.LogInformation("Calling the SendEmail method...");
-            await SendEmail(
-                Environment.GetEnvironmentVariable("Host"),
-                int.Parse(Environment.GetEnvironmentVariable("Port")),
-                bool.Parse(Environment.GetEnvironmentVariable("HostUsesLocalCertificate")),
-                Environment.GetEnvironmentVariable("User"),
-                Environment.GetEnvironmentVariable("Password"),
-                Environment.GetEnvironmentVariable("FromName"),
-                Environment.GetEnvironmentVariable("FromEmail"),
-                toEmailsList,
-                emailToSend.Subject,
-                emailToSend.PlainBody,
-                emailToSend.HtmlBody,
-                null,
-                null
-            );
+            await SendEmail(_options.Host, _options.Port, _options.HostUsesLocalCertificate, _options.User, _options.Password, _options.FromName, _options.FromEmail,
+                toEmailsList, emailToSend.MessageSubject, emailToSend.PlainBody, emailToSend.HtmlBody,
+                null, null);
 
             _log.LogInformation($"Email to: {string.Join(";", toEmailsList.ToArray())} sent successfully!");
         }
         catch (Exception ex)
         {
+            // TODO: log to app insights
             _log.LogError(ex, ex.Message);
-            throw;
+            throw new Exception();
         }
     }
 
-    public static List<string> GetToEmailAddressList(string toEmails)
+    public List<string> GetToEmailAddressList(string toEmails)
     {
-        if (string.IsNullOrWhiteSpace(toEmails))
-            return new() { Environment.GetEnvironmentVariable("FromEmail") };
-
-        return new(toEmails.Split(";"));
+        return string.IsNullOrWhiteSpace(toEmails)
+            ? new() { _options.FromEmail }
+            : new(toEmails.Split(";"));
     }
 
     public static async Task SendEmail(string host, int port, bool hostUsesLocalCertificate,
            string user, string password, string fromName, string fromEmail,
-           List<string> ToEmails, string subject, string bodyPlain, string bodyHtml,
+           List<string> toEmails, string subject, string bodyPlain, string bodyHtml,
            string linkedResourcePath, string attachmentPath)
     {
         var message = new MimeMessage();
@@ -74,7 +61,7 @@ public class SendNotificationToEmail
         message.From.Add(new MailboxAddress(fromName, fromEmail));
         message.Subject = subject;
 
-        foreach (var toEmail in ToEmails)
+        foreach (var toEmail in toEmails)
             message.To.Add(new MailboxAddress(toEmail, toEmail));
 
         var builder = new BodyBuilder();

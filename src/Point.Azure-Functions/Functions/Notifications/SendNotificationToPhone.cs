@@ -1,28 +1,43 @@
 namespace Point.Azure_Functions.Functions.Notifications;
 
-public static class SendNotificationToPhone
+public class SendNotificationToPhone
 {
-    [FunctionName("SendNotificationToPhone")]
-    public static async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "SendToPhone")] HttpRequest req,
-        ILogger log)
-    {
-        log.LogInformation("---- Created Notification message: SMS Notification");
+    private readonly ILogger<SendNotificationToPhone> _log;
+    private readonly ServiceBusAdmin _busAdmin;
 
-        string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        SmsToSend message = JsonConvert.DeserializeObject<SmsToSend>(requestBody);
+    public record SmsToSend(string Recipient, string Content);
+
+    public SendNotificationToPhone(ILogger<SendNotificationToPhone> log)
+    {
+        _log = log;
+        _busAdmin = new ServiceBusAdmin(
+            Environment.GetEnvironmentVariable("AzureWebJobsServiceBus"));
+    }
+
+    [FunctionName("SendNotificationToPhone")]
+    public async Task Run([ServiceBusTrigger("point_event_bus", "Notification")] SmsToSend smsToSend)
+    {
+        try
+        {
+            await _busAdmin.CreateRulesForTopic(nameof(SmsToSend));
+        }
+        catch
+        {
+            Console.WriteLine("Topic with such rules already exist!");
+            if (smsToSend.Recipient == null) return;
+        }
+
+        _log.LogInformation("---- Created Notification message: SMS Notification");
 
         TwilioClient.Init(Environment.GetEnvironmentVariable("AccountSID"),
             Environment.GetEnvironmentVariable("AuthToken"));
 
-        MessageResource.Create(
-            body: message.Content,
+        await MessageResource.CreateAsync(
+            body: smsToSend.Content,
             from: new Twilio.Types.PhoneNumber(Environment.GetEnvironmentVariable("PhoneFrom")),
-            to: new Twilio.Types.PhoneNumber(message.Recipient)
+            to: new Twilio.Types.PhoneNumber(smsToSend.Recipient)
         );
 
-        log.LogInformation("---- Sent Notification message: SMS Notification");
-        return new OkObjectResult("");
+        _log.LogInformation("---- Sent Notification message: SMS Notification");
     }
 }
-

@@ -1,22 +1,36 @@
 namespace Point.Azure_Functions.Functions.Notifications;
 
-public static class SendNotificationToEmail
+public class SendNotificationToEmail
 {
+    private readonly ILogger<SendNotificationToEmail> _log;
+    private readonly ServiceBusAdmin _busAdmin;
+
+    public record EmailToSend(string To, string Subject, string PlainBody, string HtmlBody);
+
+    public SendNotificationToEmail(ILogger<SendNotificationToEmail> log)
+    {
+        _log = log;
+        _busAdmin = new ServiceBusAdmin(Environment.GetEnvironmentVariable("AzureWebJobsServiceBus"));
+    }
+
     [FunctionName("SendNotificationToEmail")]
-    public static async Task<IActionResult> SendToEmail(
-        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "SendToEmail")] HttpRequest req,
-        ILogger log)
+    public async Task Run([ServiceBusTrigger("point_event_bus", "Notification")] EmailToSend emailToSend)
     {
         try
         {
-            log.LogInformation("Parsing the request body to retrieve the email to send...");
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            EmailToSend emailToSend = JsonConvert.DeserializeObject<EmailToSend>(requestBody);
+            await _busAdmin.CreateRulesForTopic(nameof(EmailToSend));
+        }
+        catch
+        {
+            Console.WriteLine("Topic with such rules already exist!");
+            if (emailToSend.To == null) return;
+        }
 
-            log.LogInformation("Parsing the To Emails...");
+        try
+        {
             List<string> toEmailsList = GetToEmailAddressList(emailToSend.To);
 
-            log.LogInformation("Calling the SendEmail method...");
+            _log.LogInformation("Calling the SendEmail method...");
             await SendEmail(
                 Environment.GetEnvironmentVariable("Host"),
                 int.Parse(Environment.GetEnvironmentVariable("Port")),
@@ -33,12 +47,11 @@ public static class SendNotificationToEmail
                 null
             );
 
-            log.LogInformation($"Email to: {string.Join(";", toEmailsList.ToArray())} sent successfully!");
-            return new OkObjectResult("Email sent successfully!");
+            _log.LogInformation($"Email to: {string.Join(";", toEmailsList.ToArray())} sent successfully!");
         }
         catch (Exception ex)
         {
-            log.LogError(ex, ex.Message);
+            _log.LogError(ex, ex.Message);
             throw;
         }
     }
@@ -52,7 +65,7 @@ public static class SendNotificationToEmail
     }
 
     public static async Task SendEmail(string host, int port, bool hostUsesLocalCertificate,
-           string user, string password,string fromName, string fromEmail, 
+           string user, string password, string fromName, string fromEmail,
            List<string> ToEmails, string subject, string bodyPlain, string bodyHtml,
            string linkedResourcePath, string attachmentPath)
     {
@@ -61,7 +74,7 @@ public static class SendNotificationToEmail
         message.From.Add(new MailboxAddress(fromName, fromEmail));
         message.Subject = subject;
 
-        foreach (string toEmail in ToEmails)
+        foreach (var toEmail in ToEmails)
             message.To.Add(new MailboxAddress(toEmail, toEmail));
 
         var builder = new BodyBuilder();
@@ -73,7 +86,7 @@ public static class SendNotificationToEmail
         {
             if (!string.IsNullOrWhiteSpace(linkedResourcePath))
             {
-                MimeEntity image = builder.LinkedResources.Add(linkedResourcePath);
+                MimeEntity image = await builder.LinkedResources.AddAsync(linkedResourcePath);
                 image.ContentId = MimeUtils.GenerateMessageId();
                 builder.HtmlBody = string.Format(bodyHtml, image.ContentId);
             }
@@ -82,14 +95,14 @@ public static class SendNotificationToEmail
         }
 
         if (!string.IsNullOrWhiteSpace(attachmentPath))
-            builder.Attachments.Add(attachmentPath);
+            await builder.Attachments.AddAsync(attachmentPath);
 
         message.Body = builder.ToMessageBody();
 
         using var smtpClient = new MailKit.Net.Smtp.SmtpClient();
 
         if (hostUsesLocalCertificate)
-            smtpClient.ServerCertificateValidationCallback = (s, c, h, e) => true;
+            smtpClient.ServerCertificateValidationCallback = (_, _, _, _) => true;
 
         await smtpClient.ConnectAsync(host, port);
         await smtpClient.AuthenticateAsync(user, password);
@@ -97,4 +110,3 @@ public static class SendNotificationToEmail
         await smtpClient.DisconnectAsync(true);
     }
 }
-

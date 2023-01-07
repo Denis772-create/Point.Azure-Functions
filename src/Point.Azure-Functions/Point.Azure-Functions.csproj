@@ -8,7 +8,9 @@
     <None Remove=".gitignore" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.11.1" />
     <PackageReference Include="MailKit" Version="3.3.0" />
+    <PackageReference Include="Microsoft.Azure.WebJobs.Extensions.ServiceBus" Version="5.8.1" />
     <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="4.1.1" />
     <PackageReference Include="MimeKit" Version="3.4.0" />
     <PackageReference Include="Telegram.Bot" Version="18.0.0" />

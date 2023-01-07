@@ -1,11 +1,10 @@
 ﻿[assembly: WebJobsStartup(typeof(Startup))]
-namespace Point.Azure_Functions
+namespace Point.Azure_Functions;
+
+public class Startup : IWebJobsStartup
 {
-    public class Startup : IWebJobsStartup
+    public void Configure(IWebJobsBuilder builder)
     {
-        public void Configure(IWebJobsBuilder builder)
-        {
             
-        }
     }
 }

@@ -1,29 +1,39 @@
-using Telegram.Bot;
-using Telegram.Bot.Types.Enums;
-
 namespace Point.Azure_Functions.Functions.Notifications;
 
-public static class SendNotificationToTelegram
+public class SendNotificationToTelegram
 {
-    [FunctionName("SendNotificationToTelegram")]
-    public static async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "SendToTelegram")] HttpRequest req,
-        ILogger log)
-    {
-        log.LogInformation("---- Created Notification message: Telegram Notification");
+    private readonly ILogger<SendNotificationToTelegram> _log;
+    private readonly ServiceBusAdmin _busAdmin;
 
-        string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        TelegramToSend message = JsonConvert.DeserializeObject<TelegramToSend>(requestBody);
+    public record TelegramToSend(string ChannelId, string Content);
+
+    public SendNotificationToTelegram(ILogger<SendNotificationToTelegram> log)
+    {
+        _log = log;
+        _busAdmin = new ServiceBusAdmin(
+            Environment.GetEnvironmentVariable("AzureWebJobsServiceBus"));
+    }
+    [FunctionName("SendNotificationToTelegram")]
+    public async Task Run([ServiceBusTrigger("point_event_bus", "Notification")]
+        TelegramToSend telegramToSend)
+    {
+        try
+        {
+            await _busAdmin.CreateRulesForTopic(nameof(TelegramToSend));
+        }
+        catch
+        {
+            Console.WriteLine("Topic with such rules already exist!");
+            if (telegramToSend.ChannelId == null) return;
+        }
 
         var bot = new TelegramBotClient(Environment.GetEnvironmentVariable("TelegramToken"));
 
         var t = Environment.GetEnvironmentVariable("ChannelId");
-        await bot.SendTextMessageAsync(message.ChannelId,
-            message.Content, 
+        await bot.SendTextMessageAsync(telegramToSend.ChannelId,
+            telegramToSend.Content,
             parseMode: ParseMode.Markdown);
 
-        log.LogInformation("---- Sent Notification message: Telegram Notification");
-        return new OkObjectResult("Message sent successfully!");
+        _log.LogInformation("---- Sent Notification message: Telegram Notification");
     }
 }
-

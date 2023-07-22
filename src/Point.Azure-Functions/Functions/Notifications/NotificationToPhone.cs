@@ -17,6 +17,7 @@ public class NotificationToPhone
         _options = options;
     }
 
+    //TODO: remove comment
     //[FunctionName("SendNotificationToPhone")]
     public async Task Run([ServiceBusTrigger(Constants.TopicName, Constants.SmsSubscriptionName)] SmsToSend smsToSend)
     {

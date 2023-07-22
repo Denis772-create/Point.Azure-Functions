@@ -17,11 +17,12 @@ public class Startup : FunctionsStartup
         var emailConfiguration = configuration.GetSection("Email").Get<EmailOptions>();
         builder.Services.AddSingleton(emailConfiguration);
 
-        var telegramConfiguration = configuration.GetSection("Telegram").Get<TelegramOptions>();
-        builder.Services.AddSingleton(telegramConfiguration);
+        //TODO: remove comment
+        //var telegramConfiguration = configuration.GetSection("Telegram").Get<TelegramOptions>();
+        //builder.Services.AddSingleton(telegramConfiguration);
 
-        var smsConfiguration = configuration.GetSection("Sms").Get<PhoneOptions>();
-        builder.Services.AddSingleton(smsConfiguration);
+        //var smsConfiguration = configuration.GetSection("Sms").Get<PhoneOptions>();
+        //builder.Services.AddSingleton(smsConfiguration);
 
         ConfigureAzureServiceBus(baseConfiguration.AzureWebJobsServiceBus).GetAwaiter();
     }

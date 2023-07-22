@@ -17,6 +17,7 @@ public class NotificationToTelegram
         _options = options;
     }
 
+    //TODO: remove comment
     //[FunctionName("SendNotificationToTelegram")]
     public async Task Run([ServiceBusTrigger(Constants.TopicName, Constants.TelegramSubscriptionName)] TelegramToSend telegramToSend)
     {

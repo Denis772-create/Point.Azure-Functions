@@ -1,8 +1,8 @@
 namespace Point.Azure_Functions.Functions.Notifications;
 
-public class SendNotificationToPhone
+public class NotificationToPhone
 {
-    private readonly ILogger<SendNotificationToPhone> _log;
+    private readonly ILogger<NotificationToPhone> _log;
     private readonly PhoneOptions _options;
 
     public record SmsToSend
@@ -11,13 +11,13 @@ public class SendNotificationToPhone
         public string Content { get; init; }
     }
 
-    public SendNotificationToPhone(ILogger<SendNotificationToPhone> log, PhoneOptions options)
+    public NotificationToPhone(ILogger<NotificationToPhone> log, PhoneOptions options)
     {
         _log = log;
         _options = options;
     }
 
-    [FunctionName("SendNotificationToPhone")]
+    //[FunctionName("SendNotificationToPhone")]
     public async Task Run([ServiceBusTrigger(Constants.TopicName, Constants.SmsSubscriptionName)] SmsToSend smsToSend)
     {
         if (smsToSend.Recipient == null) return;

@@ -1,10 +1,8 @@
-using System.Runtime.Serialization;
-
 namespace Point.Azure_Functions.Functions.Notifications;
 
-public class SendNotificationToEmail
+public class NotificationToEmail
 {
-    private readonly ILogger<SendNotificationToEmail> _log;
+    private readonly ILogger<NotificationToEmail> _log;
     private readonly EmailOptions _options;
 
     public record EmailToSend
@@ -15,7 +13,7 @@ public class SendNotificationToEmail
         public string HtmlBody { get; init; }
     }
 
-    public SendNotificationToEmail(ILogger<SendNotificationToEmail> log, EmailOptions options)
+    public NotificationToEmail(ILogger<NotificationToEmail> log, EmailOptions options)
     {
         _log = log;
         _options = options;
@@ -61,8 +59,7 @@ public class SendNotificationToEmail
         message.From.Add(new MailboxAddress(fromName, fromEmail));
         message.Subject = subject;
 
-        foreach (var toEmail in toEmails)
-            message.To.Add(new MailboxAddress(toEmail, toEmail));
+        toEmails.ForEach(x => message.To.Add(new MailboxAddress(x, x)));
 
         var builder = new BodyBuilder();
 

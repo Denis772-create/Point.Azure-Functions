@@ -1,6 +1,6 @@
-﻿using static Point.Azure_Functions.Functions.Notifications.SendNotificationToEmail;
-using static Point.Azure_Functions.Functions.Notifications.SendNotificationToPhone;
-using static Point.Azure_Functions.Functions.Notifications.SendNotificationToTelegram;
+﻿using static Point.Azure_Functions.Functions.Notifications.NotificationToEmail;
+using static Point.Azure_Functions.Functions.Notifications.NotificationToPhone;
+using static Point.Azure_Functions.Functions.Notifications.NotificationToTelegram;
 
 [assembly: FunctionsStartup(typeof(Startup))]
 namespace Point.Azure_Functions;
